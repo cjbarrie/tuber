@@ -27,45 +27,61 @@
 #' get_related_videos(video_id = "yJXTXN4xrI8")
 #' }
 
-get_related_videos <- function(video_id = NULL, max_results = 50,
-                                safe_search = "none", ...) {
-
-  if (!is.character(video_id)) stop("Must specify a video ID.")
-  if (max_results < 0 | max_results > 50) {
-    stop("max_results only takes a value between 0 and 50.")
+get_related_videos <-
+  function (video_id = NULL,
+            max_results = 50,
+            safe_search = "none",
+            ...)
+  {
+    if (!is.character(video_id))
+      stop("Must specify a video ID.")
+    if (max_results < 0 | max_results > 50) {
+      stop("max_results only takes a value between 0 and 50.")
+    }
+    querylist <- list(
+      part = "snippet",
+      relatedToVideoId = video_id,
+      type = "video",
+      maxResults = max_results,
+      safeSearch = safe_search
+    )
+    res <- tuber_GET("search", querylist, ...)
+    resdf <- read.table(
+      text = "",
+      col.names = c(
+        "video_id",
+        "rel_video_id",
+        "publishedAt",
+        "channelId",
+        "title",
+        "description",
+        "thumbnails.default.url",
+        "thumbnails.default.width",
+        "thumbnails.default.height",
+        "thumbnails.medium.url",
+        "thumbnails.medium.width",
+        "thumbnails.medium.height",
+        "thumbnails.high.url",
+        "thumbnails.high.width",
+        "thumbnails.high.height",
+        "channelTitle",
+        "liveBroadcastContent"
+      )
+    )
+    if (length(res$items) != 0) {
+      rel_video_id <- sapply(res$items, function(x)
+        unlist(x$id$videoId))
+      simple_res <- lapply(res$items, function(x)
+        unlist(x$snippet))
+      resdf <-
+        cbind(video_id = video_id,
+              rel_video_id = rel_video_id,
+              plyr::ldply(simple_res, rbind))
+      resdf <- as.data.frame(resdf)
+    }
+    else {
+      resdf[1, "video_id"] <- video_id
+    }
+    cat("Total Results", res$pageInfo$totalResults, "\n")
+    resdf
   }
-
-  querylist <- list(part = "snippet", relatedToVideoId = video_id,
-             type = "video", maxResults = max_results, safeSearch = safe_search)
-
-  res <- tuber_GET("search", querylist, ...)
-
-  resdf <- read.table(text = "",
-               col.names = c("video_id", "rel_video_id", "publishedAt",
-                              "channelId", "title",
-                             "description", "thumbnails.default.url",
-                             "thumbnails.default.width",
-                             "thumbnails.default.height",
-                             "thumbnails.medium.url", "thumbnails.medium.width",
-                             "thumbnails.medium.height", "thumbnails.high.url",
-                             "thumbnails.high.width", "thumbnails.high.height",
-                             "channelTitle", "liveBroadcastContent"))
-
-  if (length(res$items) != 0) {
-
-    rel_video_id <- sapply(res$items, function(x) unlist(x$id$videoId))
-    simple_res   <- lapply(res$items, function(x) unlist(x$snippet))
-    resdf        <- cbind(video_id = video_id,
-                          rel_video_id = rel_video_id,
-                          ldply(simple_res, rbind))
-    resdf        <- as.data.frame(resdf)
-  } else {
-
-    resdf[1, "video_id"] <- video_id
-  }
-
-  # Cat total results
-  cat("Total Results", length(res$items), "\n")
-
-  resdf
-}
